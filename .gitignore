@@ -1,0 +1,4 @@
+printer-*
+backup/
+.printer.cfg.swp
+.moonraker.conf.bkp
