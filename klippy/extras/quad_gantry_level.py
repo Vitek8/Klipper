@@ -29,10 +29,24 @@ class QuadGantryLevel:
             "Possibly Z motor numbering is wrong")
         self.max_adjust = config.getfloat("max_adjust", 4, above=0)
         self.horizontal_move_z = config.getfloat("horizontal_move_z", 5.0)
-        self.probe_helper = probe.ProbePointsHelper(config, self.probe_finalize)
-        if len(self.probe_helper.probe_points) != 4:
-            raise config.error(
-                "Need exactly 4 probe points for quad_gantry_level")
+        self.points_macro = config.get("points_macro")
+        self.verbose = config.getboolean("verbose", True)
+        self.printer.qgl_verbose = self.verbose
+        
+        eventtime = self.printer.get_reactor().monotonic() 
+        qgl_points = self.printer.lookup_object(f'gcode_macro {self.points_macro}').get_status(eventtime)
+        self.points = [
+          [qgl_points['x1'], qgl_points['y1']],
+          [qgl_points['x2'], qgl_points['y2']],
+          [qgl_points['x3'], qgl_points['y3']],
+          [qgl_points['x4'], qgl_points['y4']]    
+        ]
+        self.probe_helper = probe.ProbePointsHelper(
+          config,
+          self.probe_finalize,
+          default_points=self.points
+        )
+        
         self.z_status = z_tilt.ZAdjustStatus(self.printer)
         self.z_helper = z_tilt.ZAdjustHelper(config, 4)
         self.gantry_corners = config.getlists('gantry_corners', parser=float,
@@ -49,7 +63,7 @@ class QuadGantryLevel:
         "Conform a moving, twistable gantry to the shape of a stationary bed")
     def cmd_QUAD_GANTRY_LEVEL(self, gcmd):
         self.z_status.reset()
-        self.retry_helper.start(gcmd)
+        self.retry_helper.start(gcmd)   
         self.probe_helper.start_probe(gcmd)
     def probe_finalize(self, positions):
         # Mirror our perspective so the adjustments make sense
@@ -58,7 +72,8 @@ class QuadGantryLevel:
         points_message = "Gantry-relative probe points:\n%s\n" % (
             " ".join(["%s: %.6f" % (z_id, z_positions[z_id])
                 for z_id in range(len(z_positions))]))
-        self.gcode.respond_info(points_message)
+        if self.verbose:
+          self.gcode.respond_info(points_message)
         # Calculate slope along X axis between probe point 0 and 3
         ppx0 = [positions[0].bed_x, z_positions[0]]
         ppx3 = [positions[3].bed_x, z_positions[3]]
@@ -92,10 +107,12 @@ class QuadGantryLevel:
 
         ainfo = zip(["z","z1","z2","z3"], z_height[0:4])
         apos = " ".join(["%s: %06f" % (x) for x in ainfo])
-        self.gcode.respond_info("Actuator Positions:\n" + apos)
+        if self.verbose:
+          self.gcode.respond_info("Actuator Positions:\n" + apos)
 
         z_ave = sum(z_height) / len(z_height)
-        self.gcode.respond_info("Average: %0.6f" % z_ave)
+        if self.verbose:
+          self.gcode.respond_info("Average: %0.6f" % z_ave)
         z_adjust = []
         for z in z_height:
             z_adjust.append(z_ave - z)

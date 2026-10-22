@@ -34,7 +34,8 @@ class ZAdjustHelper:
         stepstrs = ["%s = %.6f" % (s.get_name(), a)
                     for s, a in zip(self.z_steppers, adjustments)]
         msg = "Making the following Z adjustments:\n%s" % ("\n".join(stepstrs),)
-        gcode.respond_info(msg)
+        if getattr(self.printer, "qgl_verbose", True):
+          gcode.respond_info(msg)
         # Disable Z stepper movements
         toolhead.flush_step_generation()
         for s in self.z_steppers:

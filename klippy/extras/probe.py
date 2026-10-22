@@ -368,7 +368,8 @@ class SampleAveragingHelper:
         # Report results
         if gcmd.get_command() != "G28":
             gcode = self.printer.lookup_object('gcode')
-            gcode.respond_info("probe: at %.3f,%.3f bed will contact at z=%.6f"
+            if getattr(self.printer, "qgl_verbose", True):
+              gcode.respond_info("probe: at %.3f,%.3f bed will contact at z=%.6f"
                                % (epos.bed_x, epos.bed_y, epos.bed_z))
         return epos
     def run_probe(self, gcmd):
